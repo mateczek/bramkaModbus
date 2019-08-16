@@ -125,7 +125,8 @@ void bramkaModbus::modbusQuestionIncoming(){
     }
     uframe = remoteDevice->readAll();                       //odczytanie pełnej ramki odpowiedzi
     if(checkCRC16(uframe)){                                 //sprawdzenie sumy kontrolnej odebranej ramki
-        respondeFrame+=uframe.size();                       //przygotowanie ramki odpowiedzi dla serwera modbus TCP (pole rozmiaru)       respondeFrame+=uframe;                              //dodajemy do nagłówka modbusTCP ramkę modbusaRTU(bez sumy kontrolnej)
+        respondeFrame+=uframe.size();                       //przygotowanie ramki odpowiedzi dla serwera modbus TCP (pole rozmiaru)
+        respondeFrame+=uframe;                              //dodajemy do nagłówka modbusTCP ramkę modbusaRTU(bez sumy kontrolnej)
         s->write(respondeFrame);                            //odpowiedź do klienta.
         s->waitForBytesWritten();
    }
