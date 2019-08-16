@@ -26,3 +26,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     bramkamodbus.h
+
+DISTFILES += \
+    readMe.txt
