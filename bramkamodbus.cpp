@@ -32,7 +32,7 @@ void bramkaModbus::startSerwer(uint16_t port){
         return;
     }
     qDebug()<< "Server Modbus TCP..............................OK";
-    connect(serwer,SIGNAL(newConnection()),this,SLOT(newConnection()));
+    connect(serwer,SIGNAL(newConnection()),this,SLOT(newConnection())); //nowy klient incoming
 }
 
 bramkaModbus::bramkaModbus(QObject *parent) : QObject(parent){
@@ -94,9 +94,9 @@ void bramkaModbus::setupRTU_TCP(QTextStream &ts){
 
 void bramkaModbus::newConnection(){
     qDebug()<<"new client connected client count = "<<++licznik_Klientow;
-    QTcpSocket* soc = serwer->nextPendingConnection();
-    connect(soc,SIGNAL(readyRead()),this, SLOT(modbusQuestionIncoming()));
-    connect(soc,SIGNAL(disconnected()),this,SLOT(removeClient()));
+    QTcpSocket* soc = serwer->nextPendingConnection();                     //gniazdo do komunikacji z klientem
+    connect(soc,SIGNAL(readyRead()),this, SLOT(modbusQuestionIncoming())); //obsługa zapytania
+    connect(soc,SIGNAL(disconnected()),this,SLOT(removeClient()));         //klient się zorłączył
 }
 
 void bramkaModbus::removeClient()
@@ -107,27 +107,26 @@ void bramkaModbus::removeClient()
 }
 
 void bramkaModbus::modbusQuestionIncoming(){
-    QTcpSocket * s=qobject_cast<QTcpSocket*>(sender());
-    QByteArray tcpModbusQuestions = s->readAll();
-    QByteArray respondeFrame=tcpModbusQuestions.mid(0,5); //zapamiętanie w ramce odpowiedzi numeru tranzakcji z ramki zapytania
-    int size=tcpModbusQuestions[5];                       //wyciągnięcie bajtu odpowiadającego za rozmiar
-    if (tcpModbusQuestions.size()!=size+6) return; //sprawdzenie zgodności odebranej ramki z zadeklarowanym rozmiarem
-    QByteArray rtuFrame=tcpModbusQuestions.mid(6); //wyodrębnienie ramki RTU z ramki TCP. Ramka RTU zaczyna się od bajtu nr 6
-    calcCRC16(rtuFrame);                           //policzenie sumy kontrolnej ramki RTU. funkcja doda 2 Barty sumy kontrolnej do ramki
-    remoteDevice->write(rtuFrame);                 //wysłanie ramki modubsa-RTU do urządzenia
-    QByteArray uframe(5+rtuFrame[5]*2,0);          //delkaracja ramki na odpowiedź ramka odpowiedzi powinna mieć rozmiar 5+liczbaOdczytanychRejestrów*2
-    for(int count=0;remoteDevice->bytesAvailable()<uframe.size();count++){ //czekanie aż będzie dostępna odpowiednia ilość danych
+    QTcpSocket * s=qobject_cast<QTcpSocket*>(sender());     //socket z którego przyszło zapytanie
+    QByteArray tcpModbusQuestions = s->readAll();           //zapytanie modbusa
+    QByteArray respondeFrame=tcpModbusQuestions.mid(0,5);   //zapamiętanie w ramce odpowiedzi numeru tranzakcji
+    int size=tcpModbusQuestions[5];                         //wyciągnięcie bajtu odpowiadającego za rozmiar
+    if (tcpModbusQuestions.size()!=size+6) return;          //sprawdzenie zgodności odebranej ramki z zadeklarowanym rozmiarem
+    QByteArray rtuFrame=tcpModbusQuestions.mid(6);          //wyodrębnienie ramki RTU z ramki TCP. Ramka RTU zaczyna się od bajtu nr 6
+    calcCRC16(rtuFrame);                                    //policzenie sumy kontrolnej ramki RTU. funkcja doda 2 bajty sumy kontrolnej
+    remoteDevice->write(rtuFrame);                          //wysłanie ramki modubsa-RTU do urządzenia
+    QByteArray uframe(5+rtuFrame[5]*2,0);                   //delkaracja ramki na odpowiedź (rozmiar ramki)
+    for(int count=0;remoteDevice->bytesAvailable()<uframe.size();count++){ //czekanie na pełną ramkę
         remoteDevice->waitForReadyRead(10);
         if(count>10){
-            qDebug()<<"the device is not responding"; //timeout urządzenie nie odpowiada
+            qDebug()<<"the device is not responding";        //timeout, Urządzenie nie odpowiada
             return;
         }
-    };
-    uframe = remoteDevice->readAll();             // odczytanie pełnej ramki odpowiedzi
-    if(checkCRC16(uframe)){                       //sprawdzenie sumy kontrolnej odebranej ramki
-        respondeFrame+=uframe.size();             //przygotowanie ramki odpoeiedzi dla serwera modbus TCP - pole rozmiaru odpowiedzi
-        respondeFrame+=uframe;                    //dodajemy do nagłówka modbusTCP ramkę modbusaRTU(bez sumy kontrolnej)
-        s->write(respondeFrame);                  //odesłanie do klienta.
+    }
+    uframe = remoteDevice->readAll();                       //odczytanie pełnej ramki odpowiedzi
+    if(checkCRC16(uframe)){                                 //sprawdzenie sumy kontrolnej odebranej ramki
+        respondeFrame+=uframe.size();                       //przygotowanie ramki odpowiedzi dla serwera modbus TCP (pole rozmiaru)       respondeFrame+=uframe;                              //dodajemy do nagłówka modbusTCP ramkę modbusaRTU(bez sumy kontrolnej)
+        s->write(respondeFrame);                            //odpowiedź do klienta.
         s->waitForBytesWritten();
    }
 }
