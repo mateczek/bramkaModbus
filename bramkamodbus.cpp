@@ -70,7 +70,6 @@ void bramkaModbus::setupRTU_RS232(QTextStream &ts){
     portCom->setParity(QSerialPort::NoParity);
     portCom->setStopBits(QSerialPort::OneStop);
     portCom->setFlowControl(QSerialPort::NoFlowControl);
-    portCom->setReadBufferSize(9);
     if(portCom->open(QIODevice::ReadWrite)){
         remoteDevice=portCom;
         qDebug()<<"Connect to Device BY Modbus RTU ...............OK";
@@ -114,6 +113,7 @@ void bramkaModbus::modbusQuestionIncoming(){
     if (tcpModbusQuestions.size()!=size+6) return;          //sprawdzenie zgodności odebranej ramki z zadeklarowanym rozmiarem
     QByteArray rtuFrame=tcpModbusQuestions.mid(6);          //wyodrębnienie ramki RTU z ramki TCP. Ramka RTU zaczyna się od bajtu nr 6
     calcCRC16(rtuFrame);                                    //policzenie sumy kontrolnej ramki RTU. funkcja doda 2 bajty sumy kontrolnej
+    remoteDevice->readAll();                                //Do kosza;
     remoteDevice->write(rtuFrame);                          //wysłanie ramki modubsa-RTU do urządzenia
     QByteArray uframe(5+rtuFrame[5]*2,0);                   //delkaracja ramki na odpowiedź (rozmiar ramki)
     for(int count=0;remoteDevice->bytesAvailable()<uframe.size();count++){ //czekanie na pełną ramkę
